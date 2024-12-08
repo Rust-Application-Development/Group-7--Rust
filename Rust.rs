@@ -112,7 +112,7 @@ fn release_parking_spot (parking_spots: &mut [ParkingSpot], spot_number: usize) 
             spot.vehicle_number = None;
             spot.booking_time = None;
         } else {
-            println!("Spot {} is already empty.", spot_number);
+            println! ("Spot {} is already empty.", spot_number);
         }
     } else {
         println!("Invalid spot number. Please choose a spot between 1 and 30.");
