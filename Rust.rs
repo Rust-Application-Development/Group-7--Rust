@@ -93,7 +93,7 @@ fn book_parking_spot(parking_spots: &mut [ParkingSpot], spot_number: usize) {
     }
 }
 
-fn release_parking_spot(parking_spots: &mut [ParkingSpot], spot_number: usize) {
+fn release_parking_spot (parking_spots: &mut [ParkingSpot], spot_number: usize) {
     if 1 <= spot_number && spot_number <= 30 {
         let spot = &mut parking_spots[spot_number - 1];
         if spot.is_occupied {
