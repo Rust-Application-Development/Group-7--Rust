@@ -115,7 +115,7 @@ fn release_parking_spot (parking_spots: &mut [ParkingSpot], spot_number: usize) 
             println! ("Spot {} is already empty.", spot_number);
         }
     } else {
-        println!("Invalid spot number. Please choose a spot between 1 and 30.");
+        println! ("Invalid spot number. Please choose a spot between 1 and 30.");
     }
 }
 
