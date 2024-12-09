@@ -1,21 +1,46 @@
 use std::io::{self, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Clone)] // Add Clone trait to make ParkingSpot cloneable
+const NUM_SPOTS: usize = 30;
+
+#[derive(Clone)]
 struct ParkingSpot {
-    is_occupied: bool,
+    occupied: bool,
     customer_name: Option<String>,
     vehicle_number: Option<String>,
-    booking_time: Option<u64>, // in seconds since UNIX_EPOCH
+    reserved_at: Option<u64>,
 }
 
+impl ParkingSpot {
+    fn new() -> Self {
+        ParkingSpot {
+            occupied: false,
+            customer_name: None,
+            vehicle_number: None,
+            reserved_at: None,
+        }
+    }
+
+    fn reserve(&mut self, customer_name: String, vehicle_number: String) {
+        self.occupied = true;
+        self.customer_name = Some(customer_name);
+        self.vehicle_number = Some(vehicle_number);
+        self.reserved_at = Some(current_timestamp());
+    }
+
+    fn release(&mut self) -> Option<u64> {
+        if let Some(start_time) = self.reserved_at {
+            self.occupied = false;
+            self.customer_name = None;
+            self.vehicle_number = None;
+            self.reserved_at = None;
+            return Some(current_timestamp() - start_time);
+        }
+        None
+    }
+}
 fn main() {
-    let mut parking_spots = vec![ParkingSpot {
-        is_occupied: false,
-        customer_name: None,
-        vehicle_number: None,
-        booking_time: None,
-    }; 30];
+    let mut parking_spots: Vec<ParkingSpot> = vec![ParkingSpot::new(); NUM_SPOTS];
 
     loop {
         println!("\nOptions:");
@@ -32,14 +57,8 @@ fn main() {
 
         match choice.trim() {
             "1" => display_parking_spots(&parking_spots),
-            "2" => {
-                let spot = get_spot_number("Enter the spot number to book: ");
-                book_parking_spot(&mut parking_spots, spot);
-            }
-            "3" => {
-                let spot = get_spot_number("Enter the spot number to release: ");
-                release_parking_spot(&mut parking_spots, spot);
-            }
+            "2" => book_parking_spot(&mut parking_spots),
+            "3" => release_parking_spot(&mut parking_spots),
             "4" => {
                 println!("Exiting the parking system.");
                 break;
@@ -50,9 +69,9 @@ fn main() {
 }
 
 fn display_parking_spots(parking_spots: &[ParkingSpot]) {
-    println!("Parking spots:");
+    println!("\nParking spots:");
     for (i, spot) in parking_spots.iter().enumerate() {
-        let status = if spot.is_occupied {
+        let status = if spot.occupied {
             format!(
                 "Occupied by {}, Vehicle No: {}",
                 spot.customer_name.as_ref().unwrap(),
@@ -66,9 +85,9 @@ fn display_parking_spots(parking_spots: &[ParkingSpot]) {
 }
 
 fn book_parking_spot(parking_spots: &mut [ParkingSpot], spot_number: usize) {
-    if 1 <= spot_number && spot_number <= 30 {
-        let spot = &mut parking_spots[spot_number - 1];
-        if !spot.is_occupied {
+    let spot_number = get_spot_number("Enter the spot number to book: ");
+    if let Some(spot) = parking_spots.get_mut(spot_number - 1) {
+        if !spot.occupied {
             print!("Enter customer name: ");
             io::stdout().flush().unwrap();
             let mut customer_name = String::new();
@@ -79,43 +98,32 @@ fn book_parking_spot(parking_spots: &mut [ParkingSpot], spot_number: usize) {
             let mut vehicle_number = String::new();
             io::stdin().read_line(&mut vehicle_number).expect("Failed to read input");
 
-            spot.is_occupied = true;
-            spot.customer_name = Some(customer_name.trim().to_string());
-            spot.vehicle_number = Some(vehicle_number.trim().to_string());
-            spot.booking_time = Some(current_timestamp());
-
+            spot.reserve(customer_name.trim().to_string(), vehicle_number.trim().to_string());
             println!("Spot {} is booked.", spot_number);
         } else {
             println!("Spot {} is already occupied.", spot_number);
         }
     } else {
-        println!("Invalid spot number. Please choose a spot between 1 and 30.");
+        println!("Invalid spot number. Please choose a spot between 1 and {}.", NUM_SPOTS);
     }
 }
 
 fn release_parking_spot (parking_spots: &mut [ParkingSpot], spot_number: usize) {
-    if 1 <= spot_number && spot_number <= 30 {
-        let spot = &mut parking_spots[spot_number - 1];
-        if spot.is_occupied {
-            let booking_duration = current_timestamp() - spot.booking_time.unwrap();
-            let fee = calculate_fee(booking_duration);
-            println!(
-                "Spot {} is released. Customer: {}, Vehicle No: {}. Duration: {} seconds. Fee: ${}",
-                spot_number,
-                spot.customer_name.as_ref().unwrap(),
-                spot.vehicle_number.as_ref().unwrap(),
-                booking_duration,
-                fee
-            );
-            spot.is_occupied = false;
-            spot.customer_name = None;
-            spot.vehicle_number = None;
-            spot.booking_time = None;
+    let spot_number = get_spot_number("Enter the spot number to release: ");
+    if let Some(spot) = parking_spots.get_mut(spot_number - 1) {
+        if spot.occupied {
+            if let Some(duration) = spot.release() {
+                let fee = calculate_fee(duration);
+                println!(
+                    "Spot {} released. Duration: {} seconds. Fee: ${}",
+                    spot_number, duration, fee
+                );
+            }
         } else {
-            println! ("Spot {} is already empty.", spot_number);
+            println!("Spot {} is already empty.", spot_number);
         }
     } else {
-        println!("Invalid spot number. Please choose a spot between 1 and 30.");
+        println!("Invalid spot number. Please choose a spot between 1 and {}.", NUM_SPOTS);
     }
 }
 
@@ -127,19 +135,21 @@ fn get_spot_number(prompt: &str) -> usize {
         let mut input = String::new();
         io::stdin().read_line(&mut input).expect("Failed to read input");
 
-        match input.trim().parse::<usize>() {
-            Ok(num) => return num,
-            Err(_) => println!("Invalid input. Please enter a number."),
+        if let Ok(num) = input.trim().parse::<usize>() {
+            if num >= 1 && num <= NUM_SPOTS {
+                return num;
+            }
         }
+        println!("Invalid input. Please enter a number between 1 and {}.", NUM_SPOTS);
     }
 }
+
 
 fn current_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
 fn calculate_fee(duration: u64) -> u64 {
-    // Fee calculation based on time in seconds
-    let rate_per_hour = 5; // Let's say $5 per hour
-    (duration as f64 / 3600.0 * rate_per_hour as f64).ceil() as u64
+    const RATE_PER_HOUR: u64 = 5;
+    (duration as f64 / 3600.0 * RATE_PER_HOUR as f64).ceil() as u64
 }
